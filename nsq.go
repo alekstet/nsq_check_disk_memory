@@ -14,11 +14,13 @@ import (
 )
 
 type Write_nsq struct {
-	prod       *nsq.Producer
-	config_nsq *nsq.Config
-	topic      string
-	memory_mes int
-	disk_mes   int
+	prod                *nsq.Producer
+	config_nsq          *nsq.Config
+	topic               string
+	memory_mes          int
+	disk_mes            int
+	test_message_period int
+	polling_period      int
 }
 
 type Nsqlookupd struct {
@@ -219,6 +221,16 @@ func main() {
 		panic(err)
 	}
 
+	nsq_data.test_message_period, err = cfg.Int("to_nsq.test_message_period")
+	if err != nil {
+		panic(err)
+	}
+
+	nsq_data.polling_period, err = cfg.Int("to_nsq.polling_period")
+	if err != nil {
+		panic(err)
+	}
+
 	nsq_data.memory_mes, err = cfg.Int("from_nsq.memory_mes")
 	if err != nil {
 		panic(err)
@@ -234,8 +246,8 @@ func main() {
 		panic(err)
 	}
 
-	ticker := time.NewTicker(1 * time.Second)
-	ticker1 := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(time.Duration(nsq_data.polling_period) * time.Second)
+	ticker1 := time.NewTicker(time.Duration(nsq_data.test_message_period) * time.Second)
 
 	for {
 		go func() {
