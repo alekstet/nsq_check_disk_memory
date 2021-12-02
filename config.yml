@@ -1,0 +1,9 @@
+from_nsq:
+  nsqlookupd_address: your_address:your_port
+  memory_mes: 1000
+  disk_mes: 1000
+to_nsq:
+  topic: memory_checker
+  producer: your_address:your_port
+  
+    
