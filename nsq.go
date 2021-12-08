@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -182,13 +184,83 @@ func (nsq_data *Write_nsq) memory_checker(nsqlookupd_address string) {
 		var n Nsqd
 		json.NewDecoder(resp.Body).Decode(&n)
 		for _, j1 := range n.Topics {
-			for _, j2 := range j1.Channels {
-				if j2.Depth > int64(nsq_data.memory_mes) || j2.BackendDepth > int64(nsq_data.disk_mes) {
-					nsq_data.to_nsq(j[0], j[1], j1.TopicName, j2.ChannelName)
+
+			empt_ch := []ChannelStats{}
+
+			if !reflect.DeepEqual(empt_ch, j1.Channels) {
+				for _, j2 := range j1.Channels {
+					if j2.Depth > int64(nsq_data.memory_mes) || j2.BackendDepth > int64(nsq_data.disk_mes) {
+						nsq_data.to_nsq(j[0], j[1], j1.TopicName, j2.ChannelName)
+					}
 				}
 			}
 		}
 	}
+}
+
+func get_number_of_messages(nsqlookupd_address, topic string) int64 {
+	client := http.Client{}
+	nsqd_arr := [][]string{}
+
+	url := "http://" + nsqlookupd_address + "/nodes"
+	resp, err := client.Get(url)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var m Nsqlookupd
+	json.NewDecoder(resp.Body).Decode(&m)
+
+	for _, j := range m.Producers {
+		info := []string{j.BroadcastAddress, strconv.Itoa(j.HTTPPort)}
+		nsqd_arr = append(nsqd_arr, info)
+	}
+
+	for _, j := range nsqd_arr {
+		url := "http://" + j[0] + ":" + j[1] + "/stats?format=json"
+		resp, err := client.Get(url)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		var n Nsqd
+		json.NewDecoder(resp.Body).Decode(&n)
+		for _, j1 := range n.Topics {
+			if j1.TopicName == topic {
+				return j1.Depth
+			}
+		}
+	}
+	return 0
+}
+
+func empty_topic(topic, channel string) {
+	url := "http://10.50.0.203:4151/channel/empty?topic=" + topic + "&channel=" + channel
+
+	b, err := json.Marshal("test")
+	if err != nil {
+		log.Panicf("Error with Marshal: %v", err)
+	}
+
+	req, _ := http.NewRequest("POST", url, bytes.NewReader(b))
+
+	res, _ := http.DefaultClient.Do(req)
+
+	fmt.Println(res)
+}
+
+func add_mes(topic string) {
+	url := "http://10.50.0.203:4151/pub?topic=" + topic
+
+	b, err := json.Marshal("test")
+	if err != nil {
+		log.Panicf("Error with Marshal: %v", err)
+	}
+
+	req, _ := http.NewRequest("POST", url, bytes.NewReader(b))
+
+	res, _ := http.DefaultClient.Do(req)
+
+	fmt.Println(res)
 }
 
 func main() {
@@ -246,8 +318,10 @@ func main() {
 		panic(err)
 	}
 
-	ticker := time.NewTicker(time.Duration(nsq_data.polling_period) * time.Second)
-	ticker1 := time.NewTicker(time.Duration(nsq_data.test_message_period) * time.Second)
+	fmt.Println("Config read Ok")
+
+	ticker := time.NewTicker((time.Duration(nsq_data.polling_period)) * time.Second)
+	ticker1 := time.NewTicker((time.Duration(nsq_data.test_message_period)) * time.Second)
 
 	for {
 		go func() {
