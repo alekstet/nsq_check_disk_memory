@@ -1,0 +1,16 @@
+from_nsq:
+  nsqlookupd_address: your_address:your_port
+  memory_mes: 5
+  disk_mes:   5
+to_nsq:
+  test_message_period:  10   
+  polling_period:       2        
+  topic:    your_topic
+  producer: your_address:your_port
+testing:
+  number_of_periods_ch:   5
+  number_of_periods_srv:  1
+
+  
+
+    
